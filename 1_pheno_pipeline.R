@@ -1,9 +1,6 @@
 ## Script written by Jonathan Renk
 ## 7 June 2020
 
-## This script is similiar to looking at all of data from YC NIR, but this analysis only looks at the genotypes 
-## shared with Mona's SNP data (Mazaheri et al. 2019) and Chrisinte's SNP data
-
 ## Clearing the global environment
 rm(list=ls(all=TRUE))
 
@@ -113,16 +110,3 @@ for(trait in traits){
   dev.off()
   
 }
-
-model.1 <- lmer(Amylopectin_average ~ (1|Genotype) + (1|Env) + (1|Env/Rep) + (1|Rep/Block) + (1|Genotype:Env), data = data, REML = TRUE)
-# Decreasing stopping tolerances
-strict_tol <- lmerControl(optCtrl=list(xtol_abs=1e-8, ftol_abs=1e-8))
-if (all(model.1@optinfo$optimizer=="nloptwrap")) {
-  model <- update(model.1, control=strict_tol)
-}
-model.2 <- lmer(Amylopectin_average ~ (1|Genotype) + (1|Env/Rep) + (1|Rep/Block) + (1|Genotype:Env), data = data, REML = TRUE)
-# Decreasing stopping tolerances
-if (all(model.2@optinfo$optimizer=="nloptwrap")) {
-  model2 <- update(model.2, control=strict_tol)
-}
-anova(model, model2, refit = FALSE)
