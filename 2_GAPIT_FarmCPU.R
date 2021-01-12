@@ -1,14 +1,14 @@
 ## Script written by Jonathan Renk
 ## 6 June 2020
 
-## This script is setting up GAPIT to run GWAS
+## This script is setting up GAPIT to generate PCA covariate file and then perform GWAS through FarmCPU
 
 ## Clearing the global environment
 rm(list=ls(all=TRUE))
 
 ## Setting up the working directory
 getwd()
-setwd("/Users/jonathanrenk/Desktop/EMS /GWAS_Christine_SNPs/")
+setwd("/Users/jonathanrenk/Desktop/EMS /GWAS_Christine_SNPs/christine_redo/")
 
 #source("http://www.bioconductor.org/biocLite.R")
 #biocLite("multtest")
@@ -16,14 +16,14 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
 BiocManager::install("multtest")
+BiocManager::install("snpStats")
 
-### These packages are now installed
-#install.packages("gplots")
-#install.packages("LDheatmap")
-#install.packages("genetics")
-#install.packages("ape")
-#install.packages("EMMREML")
-#install.packages("scatterplot3d")
+install.packages("gplots")
+install.packages("LDheatmap")
+install.packages("genetics")
+install.packages("ape")
+install.packages("EMMREML")
+install.packages("scatterplot3d")
 
 ## Loading in packages for GAPIT
 library("multtest")
@@ -44,51 +44,74 @@ library("biganalytics")
 
 source("http://zzlab.net/FarmCPU/FarmCPU_functions.txt")
 
-#Step 1: Set working directory and import data
-myY <- read.table("gwas_blup_traits_christine.txt", head = TRUE)
-#myG <- read.table("widiv_447g_mona_SNPs.hmp.txt", head=FALSE)
-myGD <- read.big.matrix("GAPIT.Genotype.Numerical.christine.txt", type="char", sep="\t", head = TRUE)
-myGM <- read.table("GAPIT.Genotype.map.christine.txt", head = TRUE)
+############################################################################################################
+#### Generating the numerical format genotype files used in FarmCPU #####
+############################################################################################################
+
+myY <- read.table("gwas_blup_traits_christine_v2.txt", head = TRUE)
+myG <- read.table("widiv_446g_christine_SNPs.hmp.txt", head=FALSE)
 
 # Converting HapMap format to numerical for FarmCPU
-#myGAPIT <- GAPIT(G=myG, output.numerical=TRUE)
+myGAPIT <- GAPIT(G=myG, output.numerical=TRUE)
 
-#Step 2: Run GAPIT 
-#myGAPIT <- GAPIT( 
-#  Y=myY[,c(1,18)], #Trait Starch_As_is
-#  G=myG,
-#  PCA.total=5,
-#  method.bin="optimum",
-#  model="FarmCPU"
-#)
+############################################################################################################
+#### Generating the PCA file used in FarmCPU #####
+############################################################################################################
 
-PCA <- read.csv("/Users/jonathanrenk/Desktop/EMS /GWAS_Christine_SNPs/GAPIT_christine/GAPIT.PCA.christine.csv", stringsAsFactors=FALSE) # might need to have header TRUE
-PCA <- PCA[,-1]
+myY <- read.table("gwas_blup_traits_christine_v2.txt", head = TRUE)
+myGD <- read.big.matrix("GAPIT.Genotype.Numerical.txt", type="char", sep="\t", head = TRUE)
+myGM <- read.table("GAPIT.Genotype.map.txt", head = TRUE)
 
-pvals <- read.table("FarmCPU.p.threshold.optimize.Fat_As_is.txt", head = FALSE) # change this for each trait
+myGAPIT <- GAPIT( 
+  Y=myY[,c(1,2)], 
+  GD=myGD,
+  GM=myGM,
+  PCA.total=5,
+  method.bin="optimum",
+  model="FarmCPU"
+)
+
+############################################################################################################
+#### Generating the pvalue threshold used in FarmCPU #####
+############################################################################################################
+
+myY <- read.table("gwas_blup_traits_christine_v2.txt", head = TRUE)
+myGD <- read.big.matrix("GAPIT.Genotype.Numerical.txt", type="char", sep="\t", head = TRUE)
+myGM <- read.table("GAPIT.Genotype.map.txt", head = TRUE)
+
+### NOTE! this section is for computing permuted model entry thresholds. Only needs to be run once per trait! ###
+pvals <- FarmCPU.P.Threshold(
+  Y=myY[,c(1,2)], #only two columns allowed, the first column is taxa name and the second is phenotype
+  GD=myGD,
+  GM=myGM,
+  trait="Ankom.Crude.Fiber", #name of the trait, only used for the output file name
+  theRep=100 #number of permutation times 
+)
+
+############################################################################################################
+#### Conducting GWAS in FarmCPU #####
+############################################################################################################
+
+myY <- read.table("gwas_blup_traits_christine_v2.txt", head = TRUE)
+myGD <- read.big.matrix("/Users/jonathanrenk/Desktop/EMS /GWAS_Christine_SNPs/christine_redo/GWAS_materials/GAPIT.Genotype.Numerical.txt", type="char", sep="\t", head = TRUE)
+myGM <- read.table("/Users/jonathanrenk/Desktop/EMS /GWAS_Christine_SNPs/christine_redo/GWAS_materials/GAPIT.Genotype.map.txt", head = TRUE)
+
+PCA <- read.csv("/Users/jonathanrenk/Desktop/EMS /GWAS_Christine_SNPs/christine_redo/GWAS_materials/GAPIT.PCA.csv", stringsAsFactors=FALSE) # might need to have header TRUE
+PCA <- PCA[,c(-1,-7)]
+
+pvals <- read.table("/Users/jonathanrenk/Desktop/EMS /GWAS_Christine_SNPs/christine_redo/GWAS_materials/p.threshold/FarmCPU.p.threshold.optimize.Starch_As_is.txt", head = FALSE) # change this for each trait
 pval <- quantile(pvals$V1, 0.01)
 print(paste0("Pvalue threshold is: ", pval))
 
-#Step 3: Run FarmCPU
 myFarmCPU <- FarmCPU(
-  Y=myY[,c(1,15)], #phenotype ***change this for every trait***
+  Y=myY[,c(1,17)], #phenotype ***change this for every trait***
   GD=myGD, #Genotype matrix
   GM=myGM, #Genotypic map
   CV=PCA, #Covariate variables (First 5 PCAs from GAPIT)
-  threshold.output=0.01, #P value smaller than threshold.output will be output in GWAS table
+  threshold.output=1, #P value smaller than threshold.output will be output in GWAS table
   p.threshold=pval, 
   MAF.calculate=TRUE, #Calculate minor allele frequency (MAF) or not, if set to TRUE, the SNPs with a lower MAF (<maf.threshold) will be deleted
   method.bin="optimum",
   maf.threshold=0.05, #When MAF.calculate=TRUE, the SNPs with a lower MAF (<maf.threshold) will be deleted
   maxLoop=50 #Maximum number of iterations allowed
 )
-
-#-log10(0.01/2412791) # *This is the default signifiance threshold for FarmCPU Bonferroni (8.38252) *
-#-log10(0.05/2412791) # (7.68355)
-#-log10(0.01/2386666) # (8.377792)
-#-log10(0.05/2386666) # (7.678822)
-site_sum <- read.table("widiv_447g_christine_SNPs_SiteSummary.txt", header=T, sep = "\t")
-site_sum <- site_sum[,c(-5:-14,-16:-37)]
-hist(site_sum$Minor.Allele.Frequency, main="Per Site", xlab="Minor Allele Frequency", col="cadetblue", breaks = 50)
-threshold_maf <- sum(site_sum$Minor.Allele.Frequency < 0.05) #25928 SNPs less than 0.05 maf
-min(site_sum$Minor.Allele.Frequency)
