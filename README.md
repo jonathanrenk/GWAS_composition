@@ -1,5 +1,5 @@
 # GWAS_composition
-This repository contains scripts used in Renk et al., 2021 (cite). 
+This repository contains scripts used in Renk et al., 2021 (https://doi.org/10.1101/2021.03.29.436703). 
 
 1_pheno_pipeline.R: Plots raw data and gives summary statistics as well as run a random effects model. Make many plots and also outputs a BLUP data file.
 
